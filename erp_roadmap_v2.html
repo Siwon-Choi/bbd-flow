@@ -1,0 +1,1337 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>현대 파츠 ERP — 호출 플로우</title>
+<style>
+  :root {
+    --bg: #101210;
+    --panel: #181b19;
+    --panel-2: #20241f;
+    --panel-3: #252a25;
+    --line: #333a33;
+    --line-strong: #5f6b60;
+    --text: #f1f4ef;
+    --muted: #9aa39a;
+    --soft: #c7cec4;
+    --green: #48b86b;
+    --teal: #40bfc1;
+    --amber: #e7b84f;
+    --coral: #e36f5b;
+    --blue: #5b8def;
+    --shadow: 0 22px 60px rgba(0,0,0,.35);
+  }
+
+  * { box-sizing: border-box; }
+  html { color-scheme: dark; }
+  body {
+    margin: 0;
+    min-height: 100vh;
+    background: var(--bg);
+    color: var(--text);
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    letter-spacing: 0;
+  }
+
+  button { font: inherit; }
+  .wrap {
+    width: min(1380px, calc(100vw - 36px));
+    margin: 0 auto;
+    padding: 30px 0 54px;
+  }
+
+  header {
+    display: flex;
+    align-items: end;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 22px;
+  }
+  .eyebrow {
+    margin: 0 0 8px;
+    color: var(--teal);
+    font-size: .76rem;
+    font-weight: 800;
+    text-transform: uppercase;
+  }
+  h1 {
+    margin: 0;
+    font-size: clamp(1.55rem, 2.3vw, 2.3rem);
+    line-height: 1.1;
+    letter-spacing: 0;
+  }
+  .header-copy {
+    margin: 10px 0 0;
+    max-width: 680px;
+    color: var(--muted);
+    line-height: 1.5;
+    font-size: .9rem;
+  }
+  .summary-pill {
+    flex: 0 0 auto;
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--soft);
+    border-radius: 999px;
+    padding: 9px 13px;
+    font-size: .82rem;
+    white-space: nowrap;
+  }
+
+  .flow-tabs {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+    margin-bottom: 16px;
+  }
+  .flow-tab {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--muted);
+    border-radius: 12px;
+    padding: 12px 14px;
+    cursor: pointer;
+    text-align: left;
+    transition: border-color .2s, background .2s, color .2s, transform .2s;
+  }
+  .flow-tab:hover { border-color: var(--line-strong); color: var(--text); }
+  .flow-tab.active {
+    color: var(--text);
+    border-color: var(--flow);
+    background: color-mix(in srgb, var(--flow) 12%, var(--panel));
+    box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--flow) 34%, transparent);
+  }
+  .flow-tab b { display: block; font-size: .94rem; margin-bottom: 3px; }
+  .flow-tab span { display: block; font-size: .74rem; line-height: 1.35; }
+
+  .stage-rail {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin: 0 0 18px;
+  }
+  .stage-btn {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    color: var(--muted);
+    border-radius: 999px;
+    padding: 9px 14px;
+    cursor: pointer;
+    transition: all .2s;
+    min-width: 92px;
+  }
+  .stage-btn.done {
+    color: var(--soft);
+    border-color: color-mix(in srgb, var(--flow) 45%, var(--line));
+    background: color-mix(in srgb, var(--flow) 7%, var(--panel));
+  }
+  .stage-btn.active {
+    color: #0b110d;
+    background: var(--flow);
+    border-color: var(--flow);
+    font-weight: 800;
+    transform: translateY(-2px) scale(1.04);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--flow) 22%, transparent),
+                0 14px 34px color-mix(in srgb, var(--flow) 28%, transparent);
+  }
+
+  .workspace {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 360px;
+    gap: 18px;
+    align-items: start;
+  }
+
+  .board, .detail {
+    border: 1px solid var(--line);
+    background: var(--panel);
+    border-radius: 18px;
+    box-shadow: var(--shadow);
+  }
+  .board { min-height: 650px; overflow: hidden; }
+  .board-head {
+    padding: 22px 26px 16px;
+    border-bottom: 1px solid var(--line);
+    display: flex;
+    justify-content: space-between;
+    gap: 18px;
+    align-items: start;
+  }
+  .board-title h2 {
+    margin: 0;
+    font-size: 1.18rem;
+    line-height: 1.25;
+  }
+  .board-title p {
+    margin: 8px 0 0;
+    color: var(--muted);
+    font-size: .83rem;
+    line-height: 1.45;
+    max-width: 760px;
+  }
+  .flow-badge {
+    flex: 0 0 auto;
+    border: 1px solid color-mix(in srgb, var(--flow) 46%, var(--line));
+    background: color-mix(in srgb, var(--flow) 13%, var(--panel-2));
+    color: var(--text);
+    border-radius: 999px;
+    padding: 8px 12px;
+    font-size: .78rem;
+    font-weight: 800;
+  }
+
+  .actor-strip {
+    display: grid;
+    grid-template-columns: repeat(var(--count), minmax(0, 1fr));
+    gap: 10px;
+    padding: 26px 26px 18px;
+  }
+  .actor-cell {
+    position: relative;
+    display: grid;
+    justify-items: center;
+    gap: 9px;
+    min-width: 0;
+  }
+  .actor-cell:not(:last-child)::after {
+    display: none;
+  }
+  .actor-cell.edge-on:not(:last-child)::after {
+    background: var(--line);
+  }
+  .actor-mark {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    position: relative;
+    z-index: 1;
+    border: 1px solid var(--line);
+    background: #f6f7f4;
+    color: var(--muted);
+    font-weight: 900;
+    font-size: .74rem;
+  }
+  .actor-mark img,
+  .sequence-icon img {
+    width: 30px;
+    height: 30px;
+    object-fit: contain;
+    display: block;
+  }
+  .actor-cell.on .actor-mark {
+    border-color: var(--flow);
+    background: #fff;
+    color: var(--text);
+  }
+  .actor-cell.focus .actor-mark {
+    color: #08100b;
+    background: #fff;
+    border-color: var(--flow);
+    box-shadow: 0 0 0 6px color-mix(in srgb, var(--flow) 18%, transparent),
+                0 0 34px color-mix(in srgb, var(--flow) 48%, transparent);
+    transform: scale(1.08);
+  }
+  .actor-name {
+    text-align: center;
+    color: var(--muted);
+    font-size: .78rem;
+    line-height: 1.3;
+    min-height: 32px;
+  }
+  .actor-cell.on .actor-name { color: var(--soft); }
+
+  .message-map {
+    padding: 0 26px 16px;
+  }
+  .message-box {
+    border: 1px solid color-mix(in srgb, var(--flow) 35%, var(--line));
+    border-radius: 16px;
+    background: rgba(0,0,0,.14);
+    padding: 16px 16px 13px;
+    position: relative;
+    overflow: hidden;
+  }
+  .message-box::before,
+  .message-box::after {
+    content: "";
+    position: absolute;
+    top: 48px;
+    bottom: 44px;
+    width: 42px;
+    pointer-events: none;
+    z-index: 3;
+  }
+  .message-box::before {
+    left: 16px;
+    background: linear-gradient(90deg, rgba(15,18,15,.92), transparent);
+  }
+  .message-box::after {
+    right: 16px;
+    background: linear-gradient(270deg, rgba(15,18,15,.92), transparent);
+  }
+  .message-title {
+    display: flex;
+    justify-content: space-between;
+    gap: 12px;
+    align-items: center;
+    margin-bottom: 12px;
+    color: var(--soft);
+    font-size: .8rem;
+    font-weight: 900;
+  }
+  .message-title span {
+    color: var(--flow);
+    font-size: .72rem;
+    font-weight: 900;
+  }
+  .sequence-flow {
+    display: flex;
+    align-items: stretch;
+    gap: 12px;
+    overflow-x: auto;
+    padding: 4px 12px 12px;
+    scroll-snap-type: x proximity;
+    scrollbar-color: color-mix(in srgb, var(--flow) 55%, #666) rgba(255,255,255,.08);
+  }
+  .sequence-flow::-webkit-scrollbar { height: 8px; }
+  .sequence-flow::-webkit-scrollbar-track { background: rgba(255,255,255,.08); border-radius: 999px; }
+  .sequence-flow::-webkit-scrollbar-thumb { background: var(--flow); border-radius: 999px; }
+  .sequence-node {
+    flex: 0 0 118px;
+    border: 1px solid color-mix(in srgb, var(--flow) 52%, var(--line));
+    background: color-mix(in srgb, var(--flow) 12%, var(--panel-2));
+    border-radius: 15px;
+    padding: 12px 10px;
+    display: grid;
+    justify-items: center;
+    gap: 8px;
+    box-shadow: 0 16px 32px rgba(0,0,0,.22);
+    opacity: .42;
+    transition: opacity .2s, transform .2s, border-color .2s, box-shadow .2s;
+    scroll-snap-align: center;
+  }
+  .sequence-node.active {
+    opacity: 1;
+    transform: translateY(-3px);
+    border-color: var(--flow);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--flow) 18%, transparent),
+                0 22px 48px color-mix(in srgb, var(--flow) 28%, transparent);
+  }
+  .sequence-node.done {
+    opacity: .72;
+  }
+  .sequence-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 14px;
+    display: grid;
+    place-items: center;
+    background: rgba(255,255,255,.9);
+    border: 1px solid rgba(255,255,255,.22);
+  }
+  .sequence-name {
+    color: var(--text);
+    font-weight: 900;
+    font-size: .78rem;
+    text-align: center;
+    line-height: 1.25;
+  }
+  .sequence-arrow {
+    flex: 0 0 92px;
+    display: grid;
+    align-content: center;
+    gap: 7px;
+    min-width: 0;
+    opacity: .35;
+    transition: opacity .2s;
+  }
+  .sequence-arrow.active {
+    opacity: 1;
+  }
+  .sequence-line {
+    position: relative;
+    height: 4px;
+    border-radius: 999px;
+    background: var(--flow);
+    box-shadow: 0 0 22px color-mix(in srgb, var(--flow) 55%, transparent);
+  }
+  .sequence-line::after {
+    content: "";
+    position: absolute;
+    right: -2px;
+    top: 50%;
+    transform: translateY(-50%);
+    border-top: 8px solid transparent;
+    border-bottom: 8px solid transparent;
+    border-left: 11px solid var(--flow);
+  }
+  .sequence-label {
+    color: var(--soft);
+    font-size: .66rem;
+    line-height: 1.3;
+    text-align: center;
+    min-height: 26px;
+  }
+  .sequence-note {
+    color: var(--muted);
+    font-size: .72rem;
+    line-height: 1.4;
+    margin: 4px 12px 0;
+  }
+
+  .step-track {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+    gap: 12px;
+    padding: 10px 26px 24px;
+  }
+  .step-card {
+    border: 1px solid var(--line);
+    background: var(--panel-2);
+    color: var(--text);
+    border-radius: 16px;
+    padding: 15px;
+    min-height: 178px;
+    cursor: pointer;
+    text-align: left;
+    position: relative;
+    overflow: hidden;
+    transition: transform .2s, border-color .2s, background .2s, box-shadow .2s;
+  }
+  .step-card:hover { transform: translateY(-2px); border-color: var(--line-strong); }
+  .step-card.done {
+    border-color: color-mix(in srgb, var(--flow) 42%, var(--line));
+    background: color-mix(in srgb, var(--flow) 8%, var(--panel-2));
+  }
+  .step-card.active {
+    border-color: var(--flow);
+    background: color-mix(in srgb, var(--flow) 22%, var(--panel-2));
+    box-shadow: inset 0 0 0 2px var(--flow),
+                0 0 0 4px color-mix(in srgb, var(--flow) 18%, transparent),
+                0 22px 58px color-mix(in srgb, var(--flow) 24%, transparent);
+    transform: translateY(-3px);
+  }
+  .step-card.active::before {
+    content: "";
+    position: absolute;
+    inset: 0 auto 0 0;
+    width: 7px;
+    background: var(--flow);
+  }
+  .step-status {
+    position: absolute;
+    top: 14px;
+    right: 14px;
+    display: none;
+    color: #08100b;
+    background: var(--flow);
+    border-radius: 999px;
+    padding: 5px 9px;
+    font-size: .68rem;
+    font-weight: 900;
+  }
+  .step-card.active .step-status {
+    display: inline-block;
+  }
+  .step-no {
+    display: inline-grid;
+    place-items: center;
+    min-width: 66px;
+    height: 28px;
+    border-radius: 999px;
+    background: var(--panel-3);
+    color: var(--muted);
+    border: 1px solid var(--line);
+    font-size: .76rem;
+    font-weight: 800;
+  }
+  .step-card.done .step-no,
+  .step-card.active .step-no {
+    background: var(--flow);
+    border-color: var(--flow);
+    color: #0b110d;
+  }
+  .step-card h3 {
+    margin: 13px 0 7px;
+    font-size: .98rem;
+    line-height: 1.25;
+  }
+  .route {
+    color: var(--flow);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .72rem;
+    line-height: 1.45;
+    word-break: keep-all;
+  }
+  .step-copy {
+    margin: 10px 0 0;
+    color: var(--muted);
+    font-size: .78rem;
+    line-height: 1.45;
+    display: -webkit-box;
+    -webkit-line-clamp: 3;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
+  }
+  .step-hint {
+    margin-top: 12px;
+    color: var(--soft);
+    font-size: .72rem;
+    line-height: 1.45;
+    border-top: 1px solid color-mix(in srgb, var(--flow) 22%, var(--line));
+    padding-top: 12px;
+  }
+
+  .detail {
+    position: sticky;
+    top: 16px;
+    overflow: hidden;
+  }
+  .detail-head {
+    padding: 19px 20px 16px;
+    border-bottom: 1px solid var(--line);
+    background: color-mix(in srgb, var(--flow) 10%, var(--panel));
+  }
+  .detail-kicker {
+    display: inline-block;
+    margin-bottom: 10px;
+    color: var(--flow);
+    font-size: .76rem;
+    font-weight: 900;
+  }
+  .detail h2 {
+    margin: 0;
+    font-size: 1.15rem;
+    line-height: 1.35;
+  }
+  .detail-route {
+    margin-top: 8px;
+    color: var(--muted);
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .75rem;
+    line-height: 1.45;
+  }
+  .detail-body {
+    padding: 16px 20px 20px;
+    display: grid;
+    gap: 12px;
+  }
+  .info-block {
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 13px 14px;
+    background: rgba(0,0,0,.13);
+  }
+  .info-block h3 {
+    margin: 0 0 9px;
+    font-size: .8rem;
+    color: var(--text);
+  }
+  .info-block ul {
+    margin: 0;
+    padding-left: 17px;
+    color: var(--soft);
+    line-height: 1.55;
+    font-size: .82rem;
+  }
+  .payload {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: #0b0d0b;
+    border: 1px solid var(--line);
+    border-radius: 14px;
+    padding: 14px;
+    color: #d7ddd4;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: .76rem;
+    line-height: 1.55;
+  }
+
+  @media (max-width: 980px) {
+    header { display: block; }
+    .summary-pill { display: inline-block; margin-top: 14px; }
+    .flow-tabs { grid-template-columns: 1fr; }
+    .workspace { grid-template-columns: 1fr; }
+    .detail { position: static; }
+    .step-track { grid-template-columns: 1fr; }
+    .actor-strip {
+      grid-template-columns: 1fr;
+      gap: 10px;
+    }
+    .actor-cell {
+      grid-template-columns: 48px 1fr;
+      justify-items: start;
+      text-align: left;
+    }
+    .actor-cell:not(:last-child)::after {
+      display: none;
+    }
+    .actor-name { text-align: left; min-height: 0; align-self: center; }
+    .sequence-flow { align-items: stretch; }
+    .sequence-node { flex-basis: 118px; }
+    .sequence-arrow { flex-basis: 84px; }
+  }
+
+  @media (max-width: 620px) {
+    .wrap { width: min(100vw - 22px, 1380px); padding-top: 18px; }
+    .board-head { display: block; padding: 19px; }
+    .flow-badge { display: inline-block; margin-top: 12px; }
+    .actor-strip, .step-track { padding-left: 18px; padding-right: 18px; }
+    .stage-rail { overflow-x: auto; padding-bottom: 4px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <div>
+      <p class="eyebrow">ERP communication flow</p>
+      <h1>현대 파츠 ERP — 호출별 상세 플로우</h1>
+      <p class="header-copy">호출 흐름을 반복 노드가 있는 시퀀스로 보여줍니다. 카드를 누르면 해당 구간과 우측 상세가 함께 바뀝니다.</p>
+    </div>
+    <div class="summary-pill">로그인 · 대시보드 BFF · 일반 서비스 API</div>
+  </header>
+
+  <nav class="flow-tabs" id="flowTabs" aria-label="호출 플로우 선택"></nav>
+  <div class="stage-rail" id="stageRail" aria-label="단계 선택"></div>
+
+  <div class="workspace">
+    <main class="board">
+      <div class="board-head">
+        <div class="board-title">
+          <h2 id="flowTitle"></h2>
+          <p id="flowSummary"></p>
+        </div>
+        <div class="flow-badge" id="flowBadge"></div>
+      </div>
+      <div class="message-map" id="messageMap"></div>
+      <div class="step-track" id="stepTrack"></div>
+    </main>
+
+    <aside class="detail" id="detailPanel" aria-live="polite"></aside>
+  </div>
+</div>
+
+<script>
+const flows = {
+  login: {
+    tab: "로그인",
+    tabDesc: "OIDC 인증과 httpOnly 쿠키 발급",
+    color: "#40bfc1",
+    title: "로그인 플로우",
+    badge: "Gateway Auth → httpOnly Cookie",
+    summary: "Gateway가 Keycloak과 토큰을 교환하고, 브라우저에는 `ERP_SESSION` httpOnly 쿠키만 내려줍니다.",
+    actors: ["Browser", "Gateway Auth", "Keycloak", "User Service"],
+    steps: [
+      {
+        title: "보호 화면 접근",
+        route: "Browser → Gateway Auth",
+        chain: [
+          { actor: "Browser" },
+          { actor: "Gateway Auth", label: "GET /dashboard" }
+        ],
+        messages: [
+          { from: "Browser", to: "Gateway Auth", label: "GET /dashboard · 쿠키 없음" },
+          { from: "Gateway Auth", to: "Browser", label: "302 /auth/login 시작" }
+        ],
+        progress: 1,
+        copy: "사용자가 대시보드 같은 보호 화면에 접근합니다. 아직 유효한 `ERP_SESSION` 쿠키가 없으면 Gateway가 로그인 플로우를 시작합니다.",
+        send: [
+          "Browser: GET /dashboard 또는 GET /auth/login?redirect=/dashboard",
+          "Cookie: 없음 또는 만료된 ERP_SESSION"
+        ],
+        receive: [
+          "Gateway Auth: 원래 가려던 redirect 경로",
+          "Gateway Auth: 현재 요청에 유효한 로그인 쿠키가 없다는 상태"
+        ],
+        process: [
+          "보호 리소스 접근인지 확인",
+          "기존 ERP_SESSION 쿠키가 유효한지 확인",
+          "로그인 완료 후 돌아갈 redirect 경로를 보존"
+        ],
+        payload: "GET /dashboard HTTP/1.1\nHost: erp.example.com\nCookie: (없음)\n\n→ Gateway Auth가 /auth/login 흐름 시작"
+      },
+      {
+        title: "Keycloak으로 이동",
+        route: "Gateway Auth → Keycloak",
+        chain: [
+          { actor: "Gateway Auth" },
+          { actor: "Keycloak", label: "authorize redirect" }
+        ],
+        messages: [
+          { from: "Gateway Auth", to: "Browser", label: "302 Keycloak authorize URL" },
+          { from: "Browser", to: "Keycloak", label: "GET /authorize" }
+        ],
+        progress: 3,
+        copy: "Gateway가 state, nonce, PKCE 값을 만들고 브라우저를 Keycloak 인증 화면으로 리다이렉트합니다.",
+        send: [
+          "Gateway Auth: client_id, redirect_uri, response_type=code",
+          "Gateway Auth: state, nonce, code_challenge",
+          "Browser: Keycloak authorize URL로 이동"
+        ],
+        receive: [
+          "Browser: 302 Location = Keycloak authorization endpoint",
+          "Gateway Auth: state/code_verifier를 나중에 검증할 수 있는 임시 보호값"
+        ],
+        process: [
+          "CSRF 방어용 state 생성",
+          "id_token 재사용 방지용 nonce 생성",
+          "code_verifier는 서버 보관 또는 서명된 임시 쿠키로 보호"
+        ],
+        payload: "302 Location: /realms/erp/protocol/openid-connect/auth\n  ?client_id=erp-gateway\n  &redirect_uri=https://erp.example.com/auth/callback\n  &response_type=code\n  &scope=openid profile email\n  &state=st_9ad31\n  &nonce=n_60be7\n  &code_challenge=cc_t7W...\n  &code_challenge_method=S256"
+      },
+      {
+        title: "로그인 콜백 수신",
+        route: "Keycloak → Gateway Auth",
+        chain: [
+          { actor: "Keycloak" },
+          { actor: "Gateway Auth", label: "callback code&state" }
+        ],
+        messages: [
+          { from: "Keycloak", to: "Browser", label: "302 /auth/callback?code&state" },
+          { from: "Browser", to: "Gateway Auth", label: "GET /auth/callback" }
+        ],
+        progress: 3,
+        copy: "사용자가 Keycloak에서 로그인하면 authorization code와 state가 Gateway 콜백으로 돌아옵니다.",
+        send: [
+          "Keycloak: code=AUTH_CODE_abc",
+          "Keycloak: state=st_9ad31"
+        ],
+        receive: [
+          "Gateway Auth: authorization code",
+          "Gateway Auth: 콜백 state와 기존 state 비교 결과"
+        ],
+        process: [
+          "state mismatch면 즉시 실패",
+          "authorization code는 짧게 살아있는 1회용 값으로 취급",
+          "브라우저에는 access token이나 refresh token을 저장하지 않음"
+        ],
+        payload: "GET /auth/callback?code=AUTH_CODE_abc&state=st_9ad31 HTTP/1.1\nHost: erp.example.com\nCookie: OIDC_STATE=signed_state"
+      },
+      {
+        title: "토큰 교환",
+        route: "Gateway Auth → Keycloak → Gateway Auth",
+        chain: [
+          { actor: "Gateway Auth" },
+          { actor: "Keycloak", label: "POST /token" },
+          { actor: "Gateway Auth", label: "tokens" }
+        ],
+        messages: [
+          { from: "Gateway Auth", to: "Keycloak", label: "POST /token · code + verifier" },
+          { from: "Keycloak", to: "Gateway Auth", label: "access/id/refresh token" }
+        ],
+        progress: 3,
+        copy: "Gateway가 서버 간 통신으로 Keycloak token endpoint를 호출합니다. 토큰은 Gateway 쪽에서만 다룹니다.",
+        send: [
+          "Gateway Auth: authorization code",
+          "Gateway Auth: code_verifier",
+          "Gateway Auth: client_id/client_secret 또는 confidential client 설정"
+        ],
+        receive: [
+          "Gateway Auth: access_token",
+          "Gateway Auth: id_token",
+          "Gateway Auth: refresh_token"
+        ],
+        process: [
+          "code_verifier로 PKCE 검증 완료",
+          "id_token에서 sub/name/email 같은 사용자 클레임 확인",
+          "access/refresh token을 브라우저 응답 body에 포함하지 않음"
+        ],
+        payload: "POST /realms/erp/protocol/openid-connect/token\nContent-Type: application/x-www-form-urlencoded\n\ngrant_type=authorization_code\ncode=AUTH_CODE_abc\ncode_verifier=v_RAN_64\nclient_id=erp-gateway"
+      },
+      {
+        title: "httpOnly 쿠키 발급",
+        route: "Gateway Auth → Browser",
+        chain: [
+          { actor: "Gateway Auth" },
+          { actor: "Browser", label: "Set-Cookie ERP_SESSION" }
+        ],
+        messages: [
+          { from: "Gateway Auth", to: "Browser", label: "Set-Cookie ERP_SESSION + 302" },
+          { from: "Browser", to: "Gateway Auth", label: "GET /dashboard · Cookie 자동 포함" }
+        ],
+        progress: 4,
+        copy: "헷갈렸던 지점입니다. 이 단계에서 Gateway가 브라우저에 `ERP_SESSION` httpOnly 쿠키를 내려줍니다. 이후 브라우저는 이 쿠키만 자동으로 보냅니다.",
+        send: [
+          "Gateway Auth: Set-Cookie ERP_SESSION=sid_7fd82",
+          "Gateway Auth: 302 Location=/dashboard",
+          "Gateway 내부: sid에 연결된 사용자 컨텍스트 또는 서명된 쿠키 값"
+        ],
+        receive: [
+          "Browser: httpOnly ERP_SESSION 쿠키",
+          "Browser: /dashboard로 이동할 redirect 응답"
+        ],
+        process: [
+          "JS가 읽을 수 없도록 HttpOnly 설정",
+          "HTTPS에서만 전송되도록 Secure 설정",
+          "CSRF 범위를 줄이기 위해 SameSite=Lax 또는 Strict 설정"
+        ],
+        payload: "HTTP/1.1 302 Found\nLocation: /dashboard\nSet-Cookie: ERP_SESSION=sid_7fd82;\n  HttpOnly; Secure; SameSite=Lax;\n  Path=/; Max-Age=28800"
+      },
+      {
+        title: "사원 정보 동기화",
+        route: "Gateway Auth → User Service → Gateway Auth",
+        chain: [
+          { actor: "Gateway Auth" },
+          { actor: "User Service", label: "JIT upsert" },
+          { actor: "Gateway Auth", label: "employee mapping" }
+        ],
+        messages: [
+          { from: "Gateway Auth", to: "User Service", label: "upsert keycloakSub/roles/branch" },
+          { from: "User Service", to: "Gateway Auth", label: "employee mapping 결과" }
+        ],
+        progress: 5,
+        copy: "최초 로그인 또는 Keycloak 정보 변경 시 ERP 사원 도메인 데이터를 User 서비스에 맞춰 둡니다. 화면 진입 전후 비동기로 처리해도 됩니다.",
+        send: [
+          "Gateway Auth: keycloakSub, employeeNo, name",
+          "Gateway Auth: branchId, department, roles"
+        ],
+        receive: [
+          "User Service: upsert 결과",
+          "Gateway Auth: ERP employee id와 운영 권한 매핑"
+        ],
+        process: [
+          "Keycloak sub와 ERP employee id 연결",
+          "소속 지점/부서/역할 동기화",
+          "사원 관리 화면의 기준 데이터 갱신"
+        ],
+        payload: "POST /internal/users/jit\n{\n  \"keycloakSub\": \"user-123\",\n  \"employeeNo\": \"E-1042\",\n  \"name\": \"김민준\",\n  \"branchId\": \"BR-002\",\n  \"roles\": [\"BRANCH_STAFF\"]\n}"
+      }
+    ]
+  },
+  dashboard: {
+    tab: "대시보드 API",
+    tabDesc: "Dashboard BFF가 Gateway 앞에서 조합",
+    color: "#e7b84f",
+    title: "대시보드 API 호출 플로우",
+    badge: "Browser → Dashboard BFF → API Gateway",
+    summary: "Dashboard BFF가 화면 전용 API를 받고, Gateway 뒤 서비스 응답을 화면 JSON으로 조합합니다.",
+    actors: ["Browser", "Dashboard BFF", "API Gateway", "Domain Services"],
+    steps: [
+      {
+        title: "대시보드 요청",
+        route: "Browser → Dashboard BFF",
+        chain: [
+          { actor: "Browser" },
+          { actor: "Dashboard BFF", label: "GET summary" }
+        ],
+        messages: [
+          { from: "Browser", to: "Dashboard BFF", label: "GET /dashboard/api/summary" }
+        ],
+        progress: 2,
+        copy: "브라우저가 대시보드 화면에 필요한 데이터를 BFF에 한 번에 요청합니다. 이때 로그인 쿠키가 자동으로 붙습니다.",
+        send: [
+          "Browser: GET /dashboard/api/summary?branchId=BR-002&range=today",
+          "Browser: Cookie: ERP_SESSION=sid_7fd82",
+          "Browser: X-Request-Id=req_dash_21ad9"
+        ],
+        receive: [
+          "Dashboard BFF: 화면 조건(branchId, date range, widget set)",
+          "Dashboard BFF: Gateway가 발급한 ERP_SESSION 쿠키"
+        ],
+        process: [
+          "요청 파라미터 기본 검증",
+          "대시보드에 필요한 위젯 목록 계산",
+          "이 호출이 dashboard 전용 조합 API임을 결정"
+        ],
+        payload: "GET /dashboard/api/summary?branchId=BR-002&range=today\nHost: erp.example.com\nCookie: ERP_SESSION=sid_7fd82\nX-Request-Id: req_dash_21ad9"
+      },
+      {
+        title: "사용자 컨텍스트 확인",
+        route: "Dashboard BFF → API Gateway → Dashboard BFF",
+        chain: [
+          { actor: "Dashboard BFF" },
+          { actor: "API Gateway", label: "GET /auth/session" },
+          { actor: "Dashboard BFF", label: "user context" }
+        ],
+        messages: [
+          { from: "Dashboard BFF", to: "API Gateway", label: "GET /auth/session · ERP_SESSION" },
+          { from: "API Gateway", to: "Dashboard BFF", label: "sub/roles/branchId" }
+        ],
+        progress: 3,
+        copy: "BFF는 쿠키를 마음대로 해석하지 않고 Gateway에 세션/사용자 컨텍스트 확인을 맡깁니다.",
+        send: [
+          "Dashboard BFF: GET /auth/session",
+          "Dashboard BFF: Cookie: ERP_SESSION=sid_7fd82",
+          "Dashboard BFF: X-Request-Id=req_dash_21ad9"
+        ],
+        receive: [
+          "BFF: sub=user-123",
+          "BFF: roles=[BRANCH_STAFF]",
+          "BFF: branchId=BR-002, tenantId=hyundai-parts"
+        ],
+        process: [
+          "세션 없음 또는 만료면 401/로그인 이동",
+          "대시보드 접근 권한 확인",
+          "이후 내부 API 호출에 쓸 사용자 컨텍스트 구성"
+        ],
+        payload: "GET /auth/session HTTP/1.1\nHost: api.internal\nCookie: ERP_SESSION=sid_7fd82\n\n200 OK\n{\n  \"sub\": \"user-123\",\n  \"roles\": [\"BRANCH_STAFF\"],\n  \"branchId\": \"BR-002\",\n  \"tenantId\": \"hyundai-parts\"\n}"
+      },
+      {
+        title: "위젯 API 팬아웃",
+        route: "Dashboard BFF → API Gateway",
+        chain: [
+          { actor: "Dashboard BFF" },
+          { actor: "API Gateway", label: "3 widget API calls" }
+        ],
+        messages: [
+          { from: "Dashboard BFF", to: "API Gateway", label: "GET /inventory/low-stock" },
+          { from: "Dashboard BFF", to: "API Gateway", label: "GET /sales/today" },
+          { from: "Dashboard BFF", to: "API Gateway", label: "GET /procurement/pending" }
+        ],
+        progress: 3,
+        copy: "BFF가 화면 위젯별로 필요한 도메인 API들을 Gateway에 병렬로 요청합니다.",
+        send: [
+          "BFF → Gateway: GET /inventory/low-stock",
+          "BFF → Gateway: GET /sales/today",
+          "BFF → Gateway: GET /procurement/pending",
+          "BFF → Gateway: 사용자/지점/요청 추적 헤더"
+        ],
+        receive: [
+          "API Gateway: 위젯별 내부 API 요청",
+          "Dashboard BFF: 각 호출의 성공/실패/timeout 결과"
+        ],
+        process: [
+          "각 위젯별 timeout과 retry 정책 적용",
+          "필수 위젯과 선택 위젯을 구분",
+          "부분 실패가 전체 화면 실패로 번지지 않게 격리"
+        ],
+        payload: "GET /inventory/low-stock?branchId=BR-002\nGET /sales/today?branchId=BR-002\nGET /procurement/pending?branchId=BR-002\n\nX-User-Id: user-123\nX-Branch-Id: BR-002\nX-Request-Id: req_dash_21ad9"
+      },
+      {
+        title: "도메인 서비스 조회",
+        route: "API Gateway → Domain Services → API Gateway → Dashboard BFF",
+        chain: [
+          { actor: "API Gateway" },
+          { actor: "Domain Services", label: "route + query" },
+          { actor: "API Gateway", label: "domain results" },
+          { actor: "Dashboard BFF", label: "API results" }
+        ],
+        messages: [
+          { from: "API Gateway", to: "Domain Services", label: "서비스별 라우팅 + 사용자 컨텍스트" },
+          { from: "Domain Services", to: "API Gateway", label: "위젯별 도메인 응답" },
+          { from: "API Gateway", to: "Dashboard BFF", label: "각 호출 결과 반환" }
+        ],
+        progress: 4,
+        copy: "Gateway가 각 요청을 담당 서비스로 라우팅하고, 서비스는 자기 도메인 규칙으로 데이터를 조회합니다.",
+        send: [
+          "Gateway: Inventory/Sales/Procurement 서비스로 라우팅",
+          "Gateway: X-User-Id, X-Branch-Id, X-Tenant-Id",
+          "Gateway: route-level 권한 검증 결과"
+        ],
+        receive: [
+          "Gateway: stock alerts",
+          "Gateway: today sales total",
+          "Gateway: pending procurement count"
+        ],
+        process: [
+          "Gateway에서 coarse-grained 권한 확인",
+          "서비스에서 세부 도메인 인가 확인",
+          "branchId/tenantId 기준 데이터 필터 적용"
+        ],
+        payload: "Inventory → { \"lowStock\": 7 }\nSales → { \"todaySales\": 1840000 }\nProcurement → { \"pendingProcurement\": 12 }"
+      },
+      {
+        title: "화면 JSON 조합",
+        route: "Dashboard BFF → Browser",
+        chain: [
+          { actor: "Dashboard BFF" },
+          { actor: "Browser", label: "dashboard JSON" }
+        ],
+        messages: [
+          { from: "Dashboard BFF", to: "Browser", label: "dashboard summary JSON" }
+        ],
+        progress: 5,
+        copy: "BFF가 여러 도메인 응답을 대시보드 화면이 바로 렌더링할 수 있는 JSON으로 합칩니다.",
+        send: [
+          "Dashboard BFF: dashboard summary JSON",
+          "Dashboard BFF: partial status",
+          "Dashboard BFF: widget별 lastUpdated"
+        ],
+        receive: [
+          "Browser: 화면 전용 JSON",
+          "Browser: 위젯별 렌더링 데이터"
+        ],
+        process: [
+          "도메인 응답을 화면 DTO로 변환",
+          "내부 필드와 민감한 헤더 제거",
+          "짧은 TTL 캐시 가능 위젯은 캐싱"
+        ],
+        payload: "{\n  \"branchId\": \"BR-002\",\n  \"widgets\": {\n    \"lowStock\": 7,\n    \"todaySales\": 1840000,\n    \"pendingProcurement\": 12\n  },\n  \"partial\": false,\n  \"lastUpdated\": \"2026-05-28T09:20:00+09:00\"\n}"
+      }
+    ]
+  },
+  service: {
+    tab: "일반 서비스 API",
+    tabDesc: "Gateway에서 도메인 서비스로 직행",
+    color: "#e36f5b",
+    title: "일반 서비스 API 호출 플로우",
+    badge: "Browser → API Gateway → Service",
+    summary: "일반 업무 API는 Gateway로 바로 들어가고, 세부 인가는 각 도메인 서비스가 처리합니다.",
+    actors: ["Browser", "API Gateway", "Keycloak", "Inventory Service", "Inventory DB"],
+    steps: [
+      {
+        title: "업무 API 요청",
+        route: "Browser → API Gateway",
+        chain: [
+          { actor: "Browser" },
+          { actor: "API Gateway", label: "GET /api/inventory" }
+        ],
+        messages: [
+          { from: "Browser", to: "API Gateway", label: "GET /api/inventory · ERP_SESSION" }
+        ],
+        progress: 2,
+        copy: "브라우저가 단일 업무 API를 Gateway에 요청합니다. 로그인 후 구조에서는 `ERP_SESSION` httpOnly 쿠키가 자동으로 붙습니다.",
+        send: [
+          "Browser: GET /api/inventory?partNo=P-1004",
+          "Browser: Cookie: ERP_SESSION=sid_7fd82",
+          "Browser: X-Request-Id=req_inv_8831"
+        ],
+        receive: [
+          "API Gateway: path/query/cookie/request id",
+          "Browser: API 응답 대기 상태"
+        ],
+        process: [
+          "외부 공개 진입점을 Gateway 하나로 제한",
+          "요청 경로를 내부 서비스 라우트로 매핑 준비",
+          "로그 추적용 request id 연결"
+        ],
+        payload: "GET /api/inventory?partNo=P-1004 HTTP/1.1\nHost: erp.example.com\nCookie: ERP_SESSION=sid_7fd82\nX-Request-Id: req_inv_8831"
+      },
+      {
+        title: "세션 확인과 토큰 갱신",
+        route: "API Gateway → Keycloak → API Gateway",
+        chain: [
+          { actor: "API Gateway" },
+          { actor: "Keycloak", label: "refresh if needed" },
+          { actor: "API Gateway", label: "new access token" }
+        ],
+        messages: [
+          { from: "API Gateway", to: "API Gateway", label: "ERP_SESSION 검증" },
+          { from: "API Gateway", to: "API Gateway", label: "필요 시 refresh 처리" }
+        ],
+        progress: 2,
+        copy: "Gateway가 쿠키로 로그인 상태를 확인합니다. access token이 필요하고 만료가 임박했다면 서버 쪽에서 refresh합니다.",
+        send: [
+          "Gateway: ERP_SESSION=sid_7fd82 조회",
+          "Gateway → Keycloak: refresh_token 필요 시 사용"
+        ],
+        receive: [
+          "Gateway: sub, roles, branchId, tenantId",
+          "Gateway: 갱신된 access token 또는 재로그인 필요 상태"
+        ],
+        process: [
+          "세션 없음이면 401 또는 로그인 이동",
+          "refresh token은 브라우저로 내려보내지 않음",
+          "사용자 컨텍스트를 Gateway 인증 컨텍스트로 구성"
+        ],
+        payload: "session sid_7fd82 → {\n  \"sub\": \"user-123\",\n  \"roles\": [\"BRANCH_STAFF\"],\n  \"branchId\": \"BR-002\",\n  \"tenantId\": \"hyundai-parts\"\n}"
+      },
+      {
+        title: "Gateway 권한과 라우팅",
+        route: "API Gateway → Domain Service",
+        chain: [
+          { actor: "API Gateway" },
+          { actor: "Inventory Service", label: "route request" }
+        ],
+        messages: [
+          { from: "API Gateway", to: "Inventory Service", label: "정규화된 요청 + 사용자 컨텍스트" }
+        ],
+        progress: 3,
+        copy: "Gateway가 큰 단위의 route 권한을 확인하고 대상 도메인 서비스로 요청을 전달합니다.",
+        send: [
+          "Gateway → Inventory Service: normalized request",
+          "Gateway: X-User-Id, X-User-Roles, X-Branch-Id, X-Tenant-Id",
+          "Gateway: X-Request-Id=req_inv_8831"
+        ],
+        receive: [
+          "Domain Service: 인증된 사용자 컨텍스트",
+          "Gateway: downstream 응답 또는 에러"
+        ],
+        process: [
+          "iss/aud/exp/scope 또는 세션 컨텍스트 검증",
+          "coarse-grained route 권한 확인",
+          "내부 서비스 주소로 라우팅"
+        ],
+        payload: "X-User-Id: user-123\nX-User-Roles: BRANCH_STAFF\nX-Branch-Id: BR-002\nX-Tenant-Id: hyundai-parts\nX-Request-Id: req_inv_8831"
+      },
+      {
+        title: "도메인 인가와 DB 조회",
+        route: "Inventory Service → Inventory DB → Inventory Service",
+        chain: [
+          { actor: "Inventory Service" },
+          { actor: "Inventory DB", label: "filtered query" },
+          { actor: "Inventory Service", label: "rows" }
+        ],
+        messages: [
+          { from: "Inventory Service", to: "Inventory DB", label: "tenant/branch 필터 쿼리" },
+          { from: "Inventory DB", to: "Inventory Service", label: "재고 row 반환" }
+        ],
+        progress: 4,
+        copy: "도메인 서비스는 자기 업무 규칙으로 한 번 더 인가하고, 지점/테넌트 조건을 걸어 데이터를 조회합니다.",
+        send: [
+          "Service: tenantId, branchId, partNo",
+          "Service: 사용자의 role/scope",
+          "Service → DB: 필터가 포함된 SQL 또는 repository query"
+        ],
+        receive: [
+          "Service: 재고 row 목록",
+          "Service: 권한 없음이면 403",
+          "Service: 데이터 없음이면 빈 결과 또는 404 정책"
+        ],
+        process: [
+          "@PreAuthorize 또는 service policy 적용",
+          "branchId/tenantId 데이터 필터 적용",
+          "도메인 모델을 API 응답 DTO로 변환"
+        ],
+        payload: "SELECT *\nFROM inventory_stock\nWHERE tenant_id = :tenantId\n  AND branch_id = :branchId\n  AND part_no = :partNo;"
+      },
+      {
+        title: "응답 반환",
+        route: "Inventory Service → API Gateway → Browser",
+        chain: [
+          { actor: "Inventory Service" },
+          { actor: "API Gateway", label: "business JSON" },
+          { actor: "Browser", label: "HTTP 200 JSON" }
+        ],
+        messages: [
+          { from: "Inventory Service", to: "API Gateway", label: "업무 JSON" },
+          { from: "API Gateway", to: "Browser", label: "HTTP 200 JSON" }
+        ],
+        progress: 5,
+        copy: "서비스 응답은 Gateway를 거쳐 브라우저로 돌아갑니다. 응답에는 access token이나 refresh token을 포함하지 않습니다.",
+        send: [
+          "Service → Gateway: 업무 JSON",
+          "Gateway → Browser: 최종 HTTP 200/4xx/5xx",
+          "Gateway: 필요 시 표준 에러 포맷으로 변환"
+        ],
+        receive: [
+          "Browser: 화면에서 사용할 업무 데이터",
+          "Gateway: status, latency, request id 로그"
+        ],
+        process: [
+          "응답 헤더와 보안 헤더 정리",
+          "401/403/5xx를 프론트가 처리할 수 있는 형태로 통일",
+          "토큰 값은 응답 body에 포함하지 않음"
+        ],
+        payload: "HTTP/1.1 200 OK\nContent-Type: application/json\n\n{\n  \"partNo\": \"P-1004\",\n  \"branchId\": \"BR-002\",\n  \"availableQty\": 18,\n  \"reservedQty\": 3\n}"
+      }
+    ]
+  }
+};
+
+let currentFlow = "login";
+let currentStep = 0;
+
+function escapeHtml(value) {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function initials(label) {
+  return label
+    .split(/\s+/)
+    .map(part => part[0])
+    .join("")
+    .slice(0, 3)
+    .toUpperCase();
+}
+
+const ICONS = {
+  Browser: "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/chrome/chrome-original.svg",
+  Keycloak: "https://cdn.simpleicons.org/keycloak/4D4D4D",
+  "Gateway Auth": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/spring/spring-original.svg",
+  "API Gateway": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/spring/spring-original.svg",
+  "Dashboard BFF": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/spring/spring-original.svg",
+  "Domain Services": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/spring/spring-original.svg",
+  "Inventory Service": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/spring/spring-original.svg",
+  "User Service": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/spring/spring-original.svg",
+  "Inventory DB": "https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/postgresql/postgresql-original.svg"
+};
+
+function actorIcon(actor) {
+  const src = ICONS[actor] || ICONS["API Gateway"];
+  return `<img src="${src}" alt="${escapeHtml(actor)} logo" onerror="this.replaceWith(document.createTextNode('${initials(actor)}'))">`;
+}
+
+function renderTabs() {
+  const tabs = document.getElementById("flowTabs");
+  tabs.innerHTML = Object.entries(flows).map(([key, flow]) => `
+    <button class="flow-tab ${key === currentFlow ? "active" : ""}" data-flow="${key}" style="--flow:${flow.color}">
+      <b>${flow.tab}</b>
+      <span>${flow.tabDesc}</span>
+    </button>
+  `).join("");
+  tabs.querySelectorAll(".flow-tab").forEach(button => {
+    button.addEventListener("click", () => {
+      currentFlow = button.dataset.flow;
+      currentStep = 0;
+      render();
+    });
+  });
+}
+
+function renderStageRail(flow) {
+  const rail = document.getElementById("stageRail");
+  rail.innerHTML = flow.steps.map((step, index) => `
+    <button class="stage-btn ${index < currentStep ? "done" : ""} ${index === currentStep ? "active" : ""}" data-step="${index}" style="--flow:${flow.color}">
+      ${index + 1}단계
+    </button>
+  `).join("");
+  rail.querySelectorAll(".stage-btn").forEach(button => {
+    button.addEventListener("click", () => {
+      currentStep = Number(button.dataset.step);
+      render();
+    });
+  });
+}
+
+function renderActors(flow, step) {
+  const strip = document.getElementById("actorStrip");
+  if (!strip) return;
+  strip.style.setProperty("--count", flow.actors.length);
+  strip.style.setProperty("--flow", flow.color);
+  const involved = new Set((step.chain || []).map(point => point.actor));
+  strip.innerHTML = flow.actors.map((actor, index) => {
+    const on = involved.has(actor);
+    return `
+      <div class="actor-cell ${on ? "on focus" : ""}">
+        <div class="actor-mark">${actorIcon(actor)}</div>
+        <div class="actor-name">${actor}</div>
+      </div>
+    `;
+  }).join("");
+}
+
+function buildJourney(flow) {
+  const nodes = [];
+  const ranges = [];
+
+  flow.steps.forEach(step => {
+    const start = Math.max(0, nodes.length - 1);
+    (step.chain || []).forEach(point => {
+      const last = nodes[nodes.length - 1];
+      if (last && last.actor === point.actor) return;
+      nodes.push(point);
+    });
+    ranges.push({ start, end: Math.max(start, nodes.length - 1) });
+  });
+
+  return { nodes, ranges };
+}
+
+function renderMessages(flow, step) {
+  const map = document.getElementById("messageMap");
+  map.style.setProperty("--flow", flow.color);
+  const { nodes, ranges } = buildJourney(flow);
+  const activeRange = ranges[currentStep] || { start: 0, end: 0 };
+  map.innerHTML = `
+    <div class="message-box">
+      <div class="message-title">
+        <strong>전체 호출 플로우</strong>
+        <span>반복 노드를 그대로 표시</span>
+      </div>
+      <div class="sequence-flow">
+        ${nodes.map((point, index) => {
+          const activeNode = index >= activeRange.start && index <= activeRange.end;
+          const doneNode = index < activeRange.start;
+          const activeArrow = index > activeRange.start && index <= activeRange.end;
+          return `
+          ${index === 0 ? "" : `
+            <div class="sequence-arrow ${activeArrow ? "active" : ""}">
+              <div class="sequence-label">${escapeHtml(point.label || "")}</div>
+              <div class="sequence-line"></div>
+            </div>
+          `}
+          <div class="sequence-node ${activeNode ? "active" : ""} ${doneNode ? "done" : ""}">
+            <div class="sequence-icon">${actorIcon(point.actor)}</div>
+            <div class="sequence-name">${escapeHtml(point.actor)}</div>
+          </div>
+        `}).join("")}
+      </div>
+      <div class="sequence-note">단계 카드를 클릭하면 전체 시퀀스 중 해당 구간만 강조됩니다. 같은 서비스가 여러 번 등장하면 그 순서 그대로 다시 그립니다.</div>
+    </div>
+  `;
+  const activeNode = map.querySelector(".sequence-node.active");
+  if (activeNode) {
+    activeNode.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+  }
+}
+
+function renderSteps(flow) {
+  const track = document.getElementById("stepTrack");
+  track.innerHTML = flow.steps.map((step, index) => `
+    <button class="step-card ${index < currentStep ? "done" : ""} ${index === currentStep ? "active" : ""}" data-step="${index}" style="--flow:${flow.color}">
+      <span class="step-status">현재 단계</span>
+      <span class="step-no">${index + 1}단계</span>
+      <h3>${step.title}</h3>
+      <div class="route">${step.route}</div>
+      <p class="step-copy">${step.copy}</p>
+      <div class="step-hint">전송값 · 응답값 · 처리 책임은 우측 패널</div>
+    </button>
+  `).join("");
+  track.querySelectorAll(".step-card").forEach(button => {
+    button.addEventListener("click", () => {
+      currentStep = Number(button.dataset.step);
+      render();
+    });
+  });
+}
+
+function listItems(items) {
+  return items.map(item => `<li>${escapeHtml(item)}</li>`).join("");
+}
+
+function renderDetail(flow, step) {
+  const panel = document.getElementById("detailPanel");
+  panel.style.setProperty("--flow", flow.color);
+  panel.innerHTML = `
+    <div class="detail-head">
+      <span class="detail-kicker">${flow.tab} · ${currentStep + 1}단계</span>
+      <h2>${step.title}</h2>
+      <div class="detail-route">${step.route}</div>
+    </div>
+    <div class="detail-body">
+      <section class="info-block">
+        <h3>보내는 것</h3>
+        <ul>${listItems(step.send)}</ul>
+      </section>
+      <section class="info-block">
+        <h3>받는 것</h3>
+        <ul>${listItems(step.receive)}</ul>
+      </section>
+      <section class="info-block">
+        <h3>처리하는 것</h3>
+        <ul>${listItems(step.process)}</ul>
+      </section>
+      <pre class="payload">${escapeHtml(step.payload)}</pre>
+    </div>
+  `;
+}
+
+function render() {
+  const flow = flows[currentFlow];
+  const step = flow.steps[currentStep];
+  document.documentElement.style.setProperty("--flow", flow.color);
+  document.getElementById("flowTitle").textContent = flow.title;
+  document.getElementById("flowSummary").textContent = flow.summary;
+  document.getElementById("flowBadge").textContent = flow.badge;
+  renderTabs();
+  renderStageRail(flow);
+  renderMessages(flow, step);
+  renderSteps(flow);
+  renderDetail(flow, step);
+}
+
+render();
+</script>
+</body>
+</html>
